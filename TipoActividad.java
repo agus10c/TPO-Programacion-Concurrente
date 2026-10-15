@@ -1,0 +1,8 @@
+public enum TipoActividad {
+    SHOP,
+    SNORKEL,
+    RESTAURANTE_ALMUERZO,
+    RESTAURANTE_MERIENDA,
+    FARO_MIRADOR,
+    GOMONES
+}

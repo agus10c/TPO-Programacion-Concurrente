@@ -1,0 +1,58 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.Semaphore;
+
+public class Shop implements Actividad {
+
+    private final Tiempo tiempo;
+    private final Random random = new Random();
+    private final Semaphore cajas = new Semaphore(2, true);
+    private final Suvenir[] suvenires = {
+            new Suvenir("Remera ECO", 10),
+            new Suvenir("Llavero ECO", 10),
+            new Suvenir("Gorra ECO", 10)
+    };
+
+    public Shop(Tiempo tiempo) {
+        this.tiempo = tiempo;
+    }
+
+    public void comprar(Visitante visitante) throws InterruptedException {
+        int suvenirElegido = elegirConStock();
+        if (suvenirElegido < 0) {
+            System.out.println(
+                    "[" + tiempo.imprimirTiempo() + "] " + visitante + " encuentra el shop agotado y se retira.");
+            return;
+        }
+        cajas.acquire();
+        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante + " paga en una de las cajas del shop ("
+                + suvenires[suvenirElegido].nombre + ").");
+        tiempo.esperarMinutos(1 + random.nextInt(3));
+        cajas.release();
+        System.out.println(
+                "[" + tiempo.imprimirTiempo() + "] " + visitante + " compro " + suvenires[suvenirElegido].nombre
+                        + " (quedan " + suvenires[suvenirElegido].stock + ").");
+    }
+
+    private synchronized int elegirConStock() {
+        List<Integer> disponibles = new ArrayList<>();
+        for (int i = 0; i < suvenires.length; i++) {
+            if (suvenires[i].stock > 0)
+                disponibles.add(i);
+        }
+        if (disponibles.isEmpty())
+            return -1;
+        int suvenirElegido = disponibles.get(random.nextInt(disponibles.size()));
+        suvenires[suvenirElegido].stock--;
+        return suvenirElegido;
+    }
+
+    @Override
+    public boolean realizarActividad(Visitante visitante) throws InterruptedException {
+        System.out.println("[" + tiempo.imprimirTiempo() + "] "
+                + visitante + " va a comprar al shop");
+        comprar(visitante);
+        return true;
+    }
+}
