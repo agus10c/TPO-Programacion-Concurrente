@@ -16,10 +16,9 @@ public class Generador_De_Visitantes extends Thread {
         super("Generador_De_Visitantes");
         this.parque = parque;
 
-        // Crear los colectivos
         this.colectivos = new Colectivo[CANT_COLECTIVOS];
         for (int i = 0; i < CANT_COLECTIVOS; i++) {
-            colectivos[i] = new Colectivo(parque.getTiempo(), i);
+            colectivos[i] = new Colectivo(parque.getTiempo(), i + 1);
             colectivos[i].start();
         }
     }
@@ -34,28 +33,19 @@ public class Generador_De_Visitantes extends Thread {
     public void run() {
         try {
             while (parque.getTiempo().estaActivo()) {
-
-                // Esperar a que el parque abra
-                while (!parque.parqueAbierto() && parque.getTiempo().estaActivo()) {
-                    parque.getTiempo().esperarMinutos(1);
+                if (random.nextInt(100) < PROB_TOUR) {
+                    generarTour();
+                } else {
+                    generarParticulares();
                 }
 
-                // Generar visitantes mientras esté abierto
-                while (parque.parqueAbierto() && parque.getTiempo().estaActivo()) {
-
-                    if (random.nextInt(100) < PROB_TOUR) {
-                        generarTour();
-                    } else {
-                        generarParticulares();
-                    }
-
-                    parque.getTiempo().esperarMinutos(TIEMPO_DE_GENERACION_MIN + random.nextInt(20));
-                }
+                parque.getTiempo().esperarMinutos(
+                        TIEMPO_DE_GENERACION_MIN + random.nextInt(20));
             }
-
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+
         System.out.println("[" + parque.getTiempo().imprimirTiempo()
                 + "] Fin de la generación de visitantes.");
     }
@@ -75,7 +65,7 @@ public class Generador_De_Visitantes extends Thread {
     private void generarParticulares() {
         System.out.println("[" + parque.getTiempo().imprimirTiempo()
                 + "] Llega un visitantes particular al parque.");
-            Visitante v = new Visitante(parque);
-            new Thread(v, "Visitante-" + v.getId()).start();
+        Visitante v = new Visitante(parque);
+        new Thread(v, "Visitante-" + v.getId()).start();
     }
 }

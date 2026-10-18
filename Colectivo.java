@@ -32,7 +32,7 @@ public class Colectivo extends Thread {
         lock.lock();
         try {
             // Esperar a que haya lugar
-            while ((viajando || pasajeros.size() >= CAPACIDAD_MAXIMA) && tiempo.estaActivo()) {
+            while ((viajando || enParque || pasajeros.size() >= CAPACIDAD_MAXIMA) && tiempo.estaActivo()) {
                 hayLugar.await();
             }
             if (!tiempo.estaActivo())
@@ -48,7 +48,7 @@ public class Colectivo extends Thread {
             }
 
             // Esperar a que el colectivo llegue
-            while (!enParque) {
+            while (!enParque && tiempo.estaActivo()) {
                 llego.await();
             }
 
@@ -155,7 +155,7 @@ public class Colectivo extends Thread {
 
                 esperarQueSeVacie();
 
-                tiempo.esperarMinutos(10 + random.nextInt());
+                tiempo.esperarMinutos(10 + random.nextInt(3));
                 System.out.println("[" + tiempo.imprimirTiempo() + "] "
                         + getName() + ": vuelve a la ciudad.");
             }

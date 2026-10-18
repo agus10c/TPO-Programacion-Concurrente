@@ -15,7 +15,8 @@ public class AdminFaroMirador extends Thread {
         try {
             while (tiempo.estaActivo()) {
                 Visitante v = faro.elegirVisitante();
-                if (v == null) continue;
+                if (v == null)
+                    continue;
                 System.out.println("[" + tiempo.imprimirTiempo() + "] "
                         + "AdminFaro asigna " + v + " al Tobogán " + toboganAelegir + ".");
 

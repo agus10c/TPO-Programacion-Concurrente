@@ -48,7 +48,10 @@ public class Snorkel implements Actividad {
     }
 
     @Override
-    public boolean realizarActividad(Visitante visitante) throws InterruptedException {
+    public void realizarActividad(Visitante visitante) throws InterruptedException {
+        if (tiempo.getCantMinutos() >= ParqueECO_PCS.CIERRE_ACTIVIDADES) {
+            return;
+        }
         System.out.println("[" + tiempo.imprimirTiempo() + "] "
                 + visitante + " Va a hacer Snorkel");
         solicitarEquipo(visitante);
@@ -59,7 +62,6 @@ public class Snorkel implements Actividad {
         } finally {
             devolverEquipo(visitante);
         }
-        return true;
     }
 
 }

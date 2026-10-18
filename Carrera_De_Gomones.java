@@ -3,8 +3,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class Carrera_De_Gomones implements Actividad {
 
@@ -120,7 +123,10 @@ public class Carrera_De_Gomones implements Actividad {
     }
 
     @Override
-    public boolean realizarActividad(Visitante v) throws InterruptedException {
+    public void realizarActividad(Visitante v) throws InterruptedException {
+        if (tiempo.getCantMinutos() >= ParqueECO_PCS.CIERRE_ACTIVIDADES) {
+            return;
+        }
         System.out.println("[" + tiempo.imprimirTiempo() + "] "
                 + v + " Va a hacer Carrera de gomones");
         if (random.nextBoolean()) {
@@ -145,24 +151,28 @@ public class Carrera_De_Gomones implements Actividad {
             System.out.println("[" + tiempo.imprimirTiempo() + "] "
                     + v + " toma un gomón " + tipo + ".");
 
-            largada.await();
+            try {
+                largada.await(500, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                System.out.println("[" + tiempo.imprimirTiempo() + "] "
+                        + v + " no se largó (faltaban gomones).");
+                return;
+            } catch (BrokenBarrierException e) {
+                System.out.println("[" + tiempo.imprimirTiempo() + "] "
+                        + v + " no se largó (barrera rota).");
+                return;
+            }
+            System.out.println("[" + tiempo.imprimirTiempo() + "] " + v + " se larga a bajar el río.");
 
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + v + " se larga a bajar el río.");
             tiempo.esperarMinutos(15 + random.nextInt(10));
 
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + v + " llega al final del río.");
+            System.out.println("[" + tiempo.imprimirTiempo() + "] " + v + " llega al final del río.");
 
-        } catch (Exception e) {
-            System.out.println("Ocurrio un error en la largada de gomones");
         } finally {
             gomon.release();
         }
 
         retirarBolso(v, nroBolso);
-
-        return true;
     }
 
 }

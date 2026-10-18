@@ -12,7 +12,6 @@ public class Visitante implements Runnable {
     private final boolean esDeTour;
     private final Random random = new Random();
     private Colectivo colectivo;
-
     private boolean almorzo = false;
     private boolean merendo = false;
 
@@ -73,10 +72,7 @@ public class Visitante implements Runnable {
 
             TipoActividad elegida = elegirActividad();
 
-            boolean pudoRealizarla = realizarActividad(elegida);
-            if (!pudoRealizarla) {
-                break; // el parque cerró mientras esperaba el recurso de la TipoActividad
-            }
+            realizarActividad(elegida);
 
         }
 
@@ -95,32 +91,30 @@ public class Visitante implements Runnable {
         return disponibles.get(random.nextInt(disponibles.size()));
     }
 
-    private boolean realizarActividad(TipoActividad actividadElegida) throws InterruptedException {
+    private void realizarActividad(TipoActividad actividadElegida) throws InterruptedException {
         switch (actividadElegida) {
             case SHOP:
-                return parque.getShop().realizarActividad(this);
+                parque.getShop().realizarActividad(this);
 
             case SNORKEL:
-                return parque.getSnorkel().realizarActividad(this);
+                parque.getSnorkel().realizarActividad(this);
 
             case FARO_MIRADOR:
-                return parque.getFaro().realizarActividad(this);
+               parque.getFaro().realizarActividad(this);
 
             case GOMONES:
-                return parque.getGomones().realizarActividad(this);
+                parque.getGomones().realizarActividad(this);
 
             case RESTAURANTE_ALMUERZO: {
                 this.almorzo = parque.elegirRestaurante().almorzar(this);
-                return almorzo;
+                almorzo = true;
             }
             case RESTAURANTE_MERIENDA: {
                 this.merendo = parque.elegirRestaurante().merendar(this);
-                return merendo;
+                merendo = true;
             }
-            default:
-                return false;
         }
 
-    }
+    } 
 
 }

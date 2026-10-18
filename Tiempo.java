@@ -1,24 +1,26 @@
 public class Tiempo extends Thread {
     private int cantMinutos; // total acumulado desde el arranque de la simulación
     private final long msPorMinuto;
-    private final int cantDias; // 0 = indefinido
-    private boolean activo;
+    private boolean finalizar;
+    private boolean activo;;
 
-    public Tiempo(int horaInicial, int minutoInicial, long msPorMinuto, int cantDias) {
+    public Tiempo(int horaInicial, int minutoInicial, long msPorMinuto) {
         this.cantMinutos = horaInicial * 60 + minutoInicial;
         this.msPorMinuto = msPorMinuto;
-        this.cantDias = cantDias;
+        finalizar = false;
         activo = true;
     }
 
     @Override
     public void run() {
-        int minutosPorDia = 24 * 60;
-        int limite = (cantDias != 0) ? cantDias * minutosPorDia : Integer.MAX_VALUE;
-
-        while (!isInterrupted() && cantMinutos < limite) {
+        while (!finalizar) {
             try {
                 Thread.sleep(msPorMinuto);
+                if (cantMinutos == ParqueECO_PCS.CIERRE_PARQUE) {
+                    synchronized (this) {
+                        this.notify();
+                    }
+                }
             } catch (InterruptedException e) {
                 break;
             }
@@ -27,20 +29,21 @@ public class Tiempo extends Thread {
         synchronized (this) {
             activo = false;
         }
-        System.out.println("Simulacion terminada. ");
+
+        System.out.println("Tiempo finalizado.");
     }
 
     public synchronized boolean estaActivo() {
         return activo;
     }
 
+    public synchronized void finalizar() {
+        finalizar = true;
+    }
+
     private synchronized void avanzarMinuto() {
         cantMinutos++;
     }
-
-    public synchronized int getDia() {
-        return cantMinutos / (24 * 60) + 1;
-    } // día 0, 1, 2...
 
     public synchronized int getHora() {
         return (cantMinutos / 60) % 24;
@@ -59,7 +62,7 @@ public class Tiempo extends Thread {
     }
 
     public synchronized String imprimirTiempo() {
-        return String.format("Día %d - %02d:%02d", getDia(), getHora(), getMinuto());
+        return String.format("%02d:%02d", getHora(), getMinuto());
     }
 
     public void esperarMinutos(int minutos) throws InterruptedException {
@@ -69,4 +72,11 @@ public class Tiempo extends Thread {
         }
         Thread.sleep(convertirMinutos(minutos));
     }
+
+    public void esperarCierre() throws InterruptedException {
+        synchronized (this) {
+            this.wait();
+        }
+    }
+
 }

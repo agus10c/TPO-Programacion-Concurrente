@@ -1,3 +1,4 @@
+import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Exchanger;
@@ -14,6 +15,8 @@ public class Faro_Mirador implements Actividad {
     private final Semaphore tobogan2;
     private final Exchanger<Integer> exchanger = new Exchanger<>();
 
+    private final Random random = new Random();
+
     public Faro_Mirador(Tiempo tiempo) {
         this.tiempo = tiempo;
         this.colaCima = new ArrayBlockingQueue<>(CAPACIDAD_ESCALERA);
@@ -21,8 +24,19 @@ public class Faro_Mirador implements Actividad {
         this.tobogan2 = new Semaphore(1, true);
     }
 
+    public Visitante elegirVisitante() throws InterruptedException {
+        return colaCima.poll(100, TimeUnit.MILLISECONDS);
+    }
+
+    public void asignarTobogan(int numero) throws InterruptedException {
+        exchanger.exchange(numero);
+    }
+
     @Override
-    public boolean realizarActividad(Visitante v) throws InterruptedException {
+    public void realizarActividad(Visitante v) throws InterruptedException {
+        if (tiempo.getCantMinutos() >= ParqueECO_PCS.CIERRE_ACTIVIDADES) {
+            return;
+        }
         System.out.println("[" + tiempo.imprimirTiempo() + "] "
                 + v + " va al faro Mirador.");
         System.out.println("[" + tiempo.imprimirTiempo() + "] "
@@ -35,27 +49,18 @@ public class Faro_Mirador implements Actividad {
             tobogan1.acquire();
             System.out.println("[" + tiempo.imprimirTiempo() + "] "
                     + v + " se tira por el tobogan 1.");
-            tiempo.esperarMinutos(2 + (int) (Math.random() * 2));
+            tiempo.esperarMinutos(2 + random.nextInt(2));
             tobogan1.release();
 
         } else {
             tobogan2.acquire();
             System.out.println("[" + tiempo.imprimirTiempo() + "] "
                     + v + " se tira por el tobogan 2.");
-            tiempo.esperarMinutos(2 + (int) (Math.random() * 2));
+            tiempo.esperarMinutos(2 + random.nextInt(2));
             tobogan2.release();
         }
         System.out.println("[" + tiempo.imprimirTiempo() + "] "
                 + v + " llega a la pileta.");
-        return true;
-    }
-
-    public Visitante elegirVisitante() throws InterruptedException {
-        return colaCima.poll(100, TimeUnit.MILLISECONDS);
-    }
-
-    public void asignarTobogan(int numero) throws InterruptedException {
-        exchanger.exchange(numero);
     }
 
 }

@@ -49,10 +49,10 @@ public class Shop implements Actividad {
     }
 
     @Override
-    public boolean realizarActividad(Visitante visitante) throws InterruptedException {
+    public void realizarActividad(Visitante visitante) throws InterruptedException {
         System.out.println("[" + tiempo.imprimirTiempo() + "] "
                 + visitante + " va a comprar al shop");
         comprar(visitante);
-        return true;
     }
+
 }
