@@ -27,9 +27,9 @@ public class ParqueECO_PCS {
         this.gomones = new Carrera_De_Gomones(tiempo);
         this.molinetes = new Semaphore(MOLINETES, true);
         restaurantes = new Restaurante[] {
-                new Restaurante(this, "Restaurante 1", 20),
-                new Restaurante(this, "Restaurante 2", 20),
-                new Restaurante(this, "Restaurante 3", 20)
+                new Restaurante(tiempo, "Restaurante 1", 20),
+                new Restaurante(tiempo, "Restaurante 2", 20),
+                new Restaurante(tiempo, "Restaurante 3", 20)
         };
     }
 
