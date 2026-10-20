@@ -16,15 +16,21 @@ public class Tiempo extends Thread {
         while (!finalizar) {
             try {
                 Thread.sleep(msPorMinuto);
-                if (cantMinutos == ParqueECO_PCS.CIERRE_PARQUE) {
-                    synchronized (this) {
-                        this.notify();
-                    }
-                }
             } catch (InterruptedException e) {
                 break;
             }
             avanzarMinuto();
+            if (cantMinutos == ParqueECO_PCS.CIERRE_ACTIVIDADES) {
+                synchronized (this) {
+                    this.notify();
+                }
+            }
+            if (cantMinutos == ParqueECO_PCS.CIERRE_PARQUE) {
+                synchronized (this) {
+                    this.notify();
+                }
+            }
+
         }
         synchronized (this) {
             activo = false;
@@ -73,8 +79,17 @@ public class Tiempo extends Thread {
         Thread.sleep(convertirMinutos(minutos));
     }
 
-    public void esperarCierre() throws InterruptedException {
+    public synchronized boolean actividadesAbiertas() {
+        return cantMinutos >= ParqueECO_PCS.APERTURA && cantMinutos < ParqueECO_PCS.CIERRE_ACTIVIDADES;
+    }
+
+    public synchronized boolean parqueAbierto() {
+        return ParqueECO_PCS.APERTURA < cantMinutos && cantMinutos < ParqueECO_PCS.CIERRE_PARQUE;
+    }
+
+    public void esperarCierres() throws InterruptedException {
         synchronized (this) {
+            this.wait();
             this.wait();
         }
     }

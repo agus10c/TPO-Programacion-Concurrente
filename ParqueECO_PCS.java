@@ -77,7 +77,8 @@ public class ParqueECO_PCS {
         synchronized (this) {
             visitantesDentro++;
         }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante + " ingreso al parque.");
+        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante
+                + " ingreso al parque. Cantidad de visitantes en el parque: " + visitantesDentro);
         return true;
     }
 
@@ -88,20 +89,14 @@ public class ParqueECO_PCS {
                 this.notify();
             }
         }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante + " se retira del parque.");
-    }
-
-    public synchronized boolean actividadesAbiertas() {
-
-        return tiempo.getCantMinutos() >= APERTURA && tiempo.getCantMinutos() < CIERRE_ACTIVIDADES;
-    }
-
-    public synchronized boolean parqueAbierto() {
-        return APERTURA < tiempo.getCantMinutos() && tiempo.getCantMinutos() < CIERRE_PARQUE;
+        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante
+                + " se retira del parque. Visitantes dentro del parque: " + visitantesDentro);
     }
 
     public void cerrarParque() throws InterruptedException {
         System.out.println("parque cerrando");
+        gomones.notificarCierre();
+        faro.notificarCierre();
         synchronized (this) {
             while (visitantesDentro > 0) {
                 wait(); // espera que no hay ningun visitante dentro

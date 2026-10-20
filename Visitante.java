@@ -65,7 +65,7 @@ public class Visitante implements Runnable {
     }
 
     private void vidaEnElParque() throws InterruptedException {
-        while (parque.parqueAbierto()) {
+        while (parque.getTiempo().parqueAbierto()) {
             if (random.nextInt(100) < PROB_IRSE) {
                 break; // el visitante decide irse del parque
             }
@@ -95,26 +95,29 @@ public class Visitante implements Runnable {
         switch (actividadElegida) {
             case SHOP:
                 parque.getShop().realizarActividad(this);
+                break;
 
             case SNORKEL:
                 parque.getSnorkel().realizarActividad(this);
-
+                break;
             case FARO_MIRADOR:
-               parque.getFaro().realizarActividad(this);
-
+                parque.getFaro().realizarActividad(this);
+                break;
             case GOMONES:
                 parque.getGomones().realizarActividad(this);
-
+                break;
             case RESTAURANTE_ALMUERZO: {
                 this.almorzo = parque.elegirRestaurante().almorzar(this);
                 almorzo = true;
+                break;
             }
             case RESTAURANTE_MERIENDA: {
                 this.merendo = parque.elegirRestaurante().merendar(this);
                 merendo = true;
+                break;
             }
         }
 
-    } 
+    }
 
 }

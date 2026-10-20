@@ -10,7 +10,7 @@ public class Main {
         admin.start();
         camioneta.start();
         generadorVisitantes.start();
-        tiempo.esperarCierre();
+        tiempo.esperarCierres();
         parque.cerrarParque();
         tiempo.join();
         admin.join();
