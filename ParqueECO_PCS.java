@@ -3,38 +3,27 @@ import java.util.concurrent.Semaphore;
 
 public class ParqueECO_PCS {
     private final int MOLINETES = 6;
-    private final Tiempo tiempo;
     private final Shop shop;
     private final Snorkel snorkel;
     private final Faro_Mirador faro;
     private final Carrera_De_Gomones gomones;
     private final Restaurante[] restaurantes;
 
-    public static final int CIERRE_PARQUE = 19 * 60;
-    public static final int CIERRE_ACTIVIDADES = 18 * 60;
-    public static final int APERTURA = 8 * 60;
-    public static final int CIERRE_INGRESO = 17 * 60;
-
     private int visitantesDentro;
     private Semaphore molinetes;
     private final Random random = new Random();
 
-    public ParqueECO_PCS(Tiempo tiempo) {
-        this.tiempo = tiempo;
-        this.shop = new Shop(tiempo);
-        this.snorkel = new Snorkel(tiempo);
-        this.faro = new Faro_Mirador(tiempo);
-        this.gomones = new Carrera_De_Gomones(tiempo);
+    public ParqueECO_PCS() {
+        this.shop = new Shop();
+        this.snorkel = new Snorkel();
+        this.faro = new Faro_Mirador();
+        this.gomones = new Carrera_De_Gomones();
         this.molinetes = new Semaphore(MOLINETES, true);
         restaurantes = new Restaurante[] {
-                new Restaurante(tiempo, "Restaurante 1", 20),
-                new Restaurante(tiempo, "Restaurante 2", 20),
-                new Restaurante(tiempo, "Restaurante 3", 20)
+                new Restaurante("Restaurante 1", 20),
+                new Restaurante("Restaurante 2", 20),
+                new Restaurante("Restaurante 3", 20)
         };
-    }
-
-    public Tiempo getTiempo() {
-        return tiempo;
     }
 
     public Snorkel getSnorkel() {
@@ -57,51 +46,61 @@ public class ParqueECO_PCS {
         return restaurantes[random.nextInt(restaurantes.length)];
     }
 
+    public synchronized void avisarApertura() {
+            this.notifyAll();
+    }
+
     public boolean ingresar(Visitante visitante) throws InterruptedException {
-        while (tiempo.getCantMinutos() < APERTURA) {
-            System.out.println(
-                    "[" + tiempo.imprimirTiempo() + "] " + visitante + " espera que el parque abra para ingresar.");
-            tiempo.esperarMinutos(1);
+        while (!Tiempo.aperturaRealizada()) {
+            Tiempo.informar(visitante + " espera que el parque abra para ingresar.");
+            synchronized (this) {
+                this.wait();
+            }
         }
-        if (tiempo.getCantMinutos() >= CIERRE_INGRESO) {
-            System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante
+        molinetes.acquire();
+        if (!Tiempo.ingresoAbierto()) {
+            molinetes.release();
+            Tiempo.informar(visitante
                     + " no pudo ingresar (el horario de ingreso ha terminado).");
             return false;
         }
-        molinetes.acquire();
         int enUso = MOLINETES - molinetes.availablePermits();
-        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante + " cruza un molinete (molinetes ocupados: "
+        Tiempo.informar(visitante + " cruza un molinete (molinetes ocupados: "
                 + enUso + "/" + MOLINETES + ").");
-        tiempo.esperarMinutos(1 + random.nextInt(4));
+        Tiempo.esperarMinutos(1 + random.nextInt(4));
         molinetes.release();
         synchronized (this) {
             visitantesDentro++;
         }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante
-                + " ingreso al parque. Cantidad de visitantes en el parque: " + visitantesDentro);
+        Tiempo.informar(visitante + " ingreso al parque. Cantidad de visitantes en el parque: " + visitantesDentro);
         return true;
     }
 
-    public void salir(Visitante visitante) {
+    public void salir(Visitante visitante) throws InterruptedException {
         synchronized (this) {
             visitantesDentro--;
             if (visitantesDentro <= 0) {
-                this.notify();
+                this.notifyAll();
             }
         }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante
-                + " se retira del parque. Visitantes dentro del parque: " + visitantesDentro);
+        Tiempo.informar(visitante + " se retira del parque. Visitantes dentro del parque: " + visitantesDentro);
+    }
+
+    public void cerrarActividades() throws InterruptedException {
+        System.out.println("Cerrando actividades del parque");
+        faro.notificarCierre();
+        gomones.notificarCierre();
     }
 
     public void cerrarParque() throws InterruptedException {
-        System.out.println("parque cerrando");
-        gomones.notificarCierre();
-        faro.notificarCierre();
+        Tiempo.informar("Parque cerrando");
+        for (int i = 0; i < restaurantes.length; i++) {
+            restaurantes[i].notificarCierre();
+        }
         synchronized (this) {
             while (visitantesDentro > 0) {
                 wait(); // espera que no hay ningun visitante dentro
             }
-            tiempo.finalizar();
         }
         System.out.println("El parque cerro");
     }

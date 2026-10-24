@@ -1,77 +1,42 @@
 public class Tiempo extends Thread {
-    private int cantMinutos; // total acumulado desde el arranque de la simulación
-    private final long msPorMinuto;
-    private boolean finalizar;
-    private boolean activo;;
 
-    public Tiempo(int horaInicial, int minutoInicial, long msPorMinuto) {
-        this.cantMinutos = horaInicial * 60 + minutoInicial;
-        this.msPorMinuto = msPorMinuto;
-        finalizar = false;
-        activo = true;
+    private static final int HORA_INICIAL = 8;
+    private static final int MINUTO_INICIAL = 0;
+    private static final long MS_POR_MINUTO = 80;
+    private static int cantMinutos = HORA_INICIAL * 60 + MINUTO_INICIAL; // total acumulado desde el arranque de la
+                                                                         // simulación
+
+    private final ParqueECO_PCS parque;
+    private static final int APERTURA = 9 * 60;
+    private static final int CIERRE_INGRESO = 17 * 60;
+    private static final int CIERRE_ACTIVIDADES = 18 * 60;
+    private static final int CIERRE_PARQUE = 19 * 60;
+
+    public Tiempo(ParqueECO_PCS parque) {
+        this.parque = parque;
     }
 
-    @Override
-    public void run() {
-        while (!finalizar) {
-            try {
-                Thread.sleep(msPorMinuto);
-            } catch (InterruptedException e) {
-                break;
-            }
-            avanzarMinuto();
-            if (cantMinutos == ParqueECO_PCS.CIERRE_ACTIVIDADES) {
-                synchronized (this) {
-                    this.notify();
-                }
-            }
-            if (cantMinutos == ParqueECO_PCS.CIERRE_PARQUE) {
-                synchronized (this) {
-                    this.notify();
-                }
-            }
-
-        }
-        synchronized (this) {
-            activo = false;
-        }
-
-        System.out.println("Tiempo finalizado.");
+    public static synchronized boolean aperturaRealizada() {
+        return cantMinutos >= APERTURA;
     }
 
-    public synchronized boolean estaActivo() {
-        return activo;
+    public static synchronized boolean ingresoAbierto() {
+        return cantMinutos < CIERRE_INGRESO;
     }
 
-    public synchronized void finalizar() {
-        finalizar = true;
+    public static synchronized boolean actividadesAbiertas() {
+        return cantMinutos < CIERRE_ACTIVIDADES;
     }
 
-    private synchronized void avanzarMinuto() {
-        cantMinutos++;
+    public static synchronized boolean parqueAbierto() {
+        return cantMinutos < CIERRE_PARQUE;
     }
 
-    public synchronized int getHora() {
-        return (cantMinutos / 60) % 24;
-    } // 0-23
-
-    public synchronized int getMinuto() {
-        return cantMinutos % 60;
+    public static long convertirMinutos(int minutos) {
+        return minutos * MS_POR_MINUTO;
     }
 
-    public synchronized int getCantMinutos() {
-        return cantMinutos;
-    }
-
-    public long convertirMinutos(int minutos) {
-        return minutos * msPorMinuto;
-    }
-
-    public synchronized String imprimirTiempo() {
-        return String.format("%02d:%02d", getHora(), getMinuto());
-    }
-
-    public void esperarMinutos(int minutos) throws InterruptedException {
+    public static void esperarMinutos(int minutos) throws InterruptedException {
         if (minutos <= 0) {
             System.out.println("Esperar Minutos con valor invalido: " + minutos);
             return;
@@ -79,19 +44,54 @@ public class Tiempo extends Thread {
         Thread.sleep(convertirMinutos(minutos));
     }
 
-    public synchronized boolean actividadesAbiertas() {
-        return cantMinutos >= ParqueECO_PCS.APERTURA && cantMinutos < ParqueECO_PCS.CIERRE_ACTIVIDADES;
+    public static synchronized int getCantMinutos() {
+        return cantMinutos;
     }
 
-    public synchronized boolean parqueAbierto() {
-        return ParqueECO_PCS.APERTURA < cantMinutos && cantMinutos < ParqueECO_PCS.CIERRE_PARQUE;
+    public static synchronized String imprimirTiempo() {
+        int minutos = cantMinutos;
+
+        return String.format(
+                "%02d:%02d",
+                (minutos / 60) % 24,
+                minutos % 60);
     }
 
-    public void esperarCierres() throws InterruptedException {
-        synchronized (this) {
-            this.wait();
-            this.wait();
+    public static void informar(String s) {
+        System.out.println("[" + imprimirTiempo() + "] " + s);
+    }
+
+    private static synchronized void avanzarMinuto() {
+        cantMinutos++;
+    }
+
+    @Override
+    public void run() {
+        boolean activo = true;
+        while (activo) {
+            try {
+                Thread.sleep(MS_POR_MINUTO);
+            } catch (InterruptedException e) {
+                break;
+            }
+            avanzarMinuto();
+            try {
+                if (cantMinutos == APERTURA) {
+                    parque.avisarApertura();
+                }
+                if (cantMinutos == CIERRE_ACTIVIDADES) {
+                    parque.cerrarActividades();
+                }
+                if (cantMinutos == CIERRE_PARQUE) {
+                    parque.cerrarParque();
+                    activo = false;
+                }
+            } catch (Exception e) {
+                System.out.println("Error en notificacion del tiempo");
+            }
+
         }
+        System.out.println("Tiempo finalizado.");
     }
 
 }

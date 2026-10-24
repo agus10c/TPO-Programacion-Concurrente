@@ -4,22 +4,25 @@ import java.util.ArrayList;
 
 public class Visitante implements Runnable {
 
-    private static final int PROB_IRSE = 10; // chance de retirarse en cada vuelta del loop en %
+    private static final int PROB_IRSE = 20; // chance de retirarse en cada vuelta del loop en %
     private static int contadorVisitantes = 0;
+
+    private final Random random = new Random();
 
     private final int id;
     private final ParqueECO_PCS parque;
     private final boolean esDeTour;
-    private final Random random = new Random();
     private Colectivo colectivo;
-    private boolean almorzo = false;
-    private boolean merendo = false;
+    private boolean almorzo;
+    private boolean merendo;
 
     public Visitante(ParqueECO_PCS parque) {
         this.id = incrementarId();
         this.parque = parque;
         this.esDeTour = false;
         this.colectivo = null;
+        this.almorzo = false;
+        this.merendo = false;
     }
 
     // Constructor para TOUR
@@ -28,6 +31,8 @@ public class Visitante implements Runnable {
         this.parque = parque;
         this.colectivo = colectivo;
         this.esDeTour = true;
+        this.almorzo = false;
+        this.merendo = false;
     }
 
     private static synchronized int incrementarId() {
@@ -51,7 +56,9 @@ public class Visitante implements Runnable {
     public void run() {
         try {
             if (esDeTour) {
-                colectivo.subirYEsperar(this);
+                if (!colectivo.subirYEsperar(this)) {
+                    return;
+                }
             }
             if (!parque.ingresar(this)) {
                 return; // no llegó a entrar (cerró el ingreso mientras esperaba el molinete)
@@ -60,20 +67,18 @@ public class Visitante implements Runnable {
             parque.salir(this);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            System.out.println("[" + parque.getTiempo().imprimirTiempo() + "] Visitante " + id + " interrumpido.");
+            Tiempo.informar("Visitante " + id + " interrumpido.");
         }
     }
 
     private void vidaEnElParque() throws InterruptedException {
-        while (parque.getTiempo().parqueAbierto()) {
+        while (Tiempo.parqueAbierto()) {
             if (random.nextInt(100) < PROB_IRSE) {
                 break; // el visitante decide irse del parque
             }
-
             TipoActividad elegida = elegirActividad();
-
             realizarActividad(elegida);
-
+            Tiempo.esperarMinutos(10);
         }
 
     }
@@ -108,12 +113,10 @@ public class Visitante implements Runnable {
                 break;
             case RESTAURANTE_ALMUERZO: {
                 this.almorzo = parque.elegirRestaurante().almorzar(this);
-                almorzo = true;
                 break;
             }
             case RESTAURANTE_MERIENDA: {
                 this.merendo = parque.elegirRestaurante().merendar(this);
-                merendo = true;
                 break;
             }
         }

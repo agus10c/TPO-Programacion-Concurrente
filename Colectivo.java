@@ -2,7 +2,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.ArrayList;
 import java.util.Random;
 
 public class Colectivo extends Thread {
@@ -10,155 +9,139 @@ public class Colectivo extends Thread {
     public static final int CAPACIDAD_MAXIMA = 25;
     private static final int TIEMPO_DE_ESPERA_MINUTOS = 20;
 
-    private final Tiempo tiempo;
-
     private final Random random = new Random();
 
     private final Lock lock = new ReentrantLock();
     private final Condition hayLugar = lock.newCondition();
     private final Condition llego = lock.newCondition();
-    private final Condition lleno = lock.newCondition();
+    private final Condition puedeViajar = lock.newCondition();
 
-    private final ArrayList<Visitante> pasajeros = new ArrayList<>();
-    private boolean viajando = false;
-    private boolean enParque = false;
+    private int cantPasajeros;
+    private boolean sePuedeSubir;
+    private boolean sePuedeBajar;
 
-    public Colectivo(Tiempo tiempo, int id) {
-        super("Colectivo-" + id);
-        this.tiempo = tiempo;
+    public Colectivo() {
+        this.cantPasajeros = 0;
+        this.sePuedeSubir = true;
+        this.sePuedeBajar = false;
     }
 
-    public void subirYEsperar(Visitante v) throws InterruptedException {
+    public boolean subirYEsperar(Visitante v) throws InterruptedException {
         lock.lock();
         try {
-            // Esperar a que haya lugar
-            while ((viajando || enParque || pasajeros.size() >= CAPACIDAD_MAXIMA) && tiempo.estaActivo()) {
+            puedeViajar.signal();
+            while ((!sePuedeSubir || cantPasajeros >= CAPACIDAD_MAXIMA)
+                    && Tiempo.parqueAbierto()) {
                 hayLugar.await();
             }
-            if (!tiempo.estaActivo())
-                return;
+            if (!Tiempo.parqueAbierto())
+                return false;
+            cantPasajeros++;
+            Tiempo.informar(v + " sube al colectivo de tour (" + cantPasajeros + "/" + CAPACIDAD_MAXIMA + ").");
 
-            pasajeros.add(v);
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + getName() + ": sube " + v
-                    + " (" + pasajeros.size() + "/" + CAPACIDAD_MAXIMA + ").");
-
-            if (pasajeros.size() == CAPACIDAD_MAXIMA) {
-                lleno.signalAll(); // despierta al colectivo (está lleno)
+            if (cantPasajeros == CAPACIDAD_MAXIMA) {
+                puedeViajar.signalAll();
             }
 
-            // Esperar a que el colectivo llegue
-            while (!enParque && tiempo.estaActivo()) {
+            while (!sePuedeBajar && Tiempo.parqueAbierto()) {
                 llego.await();
             }
+            if(!Tiempo.parqueAbierto())
+                return false;
+            cantPasajeros--;
+            Tiempo.informar(v + " baja del colectivo de tour (" + cantPasajeros + "/" + CAPACIDAD_MAXIMA + ").");
 
-            // El visitante se baja
-            pasajeros.remove(v);
-            if (pasajeros.isEmpty()) {
-                // Si era el último, avisar al colectivo
-                hayLugar.signalAll();
+            if (cantPasajeros == 0) {
+                puedeViajar.signalAll();
             }
+            return true;
         } finally {
             lock.unlock();
         }
     }
 
-    private void esperar() throws InterruptedException {
+    private boolean esperarPasajeros() throws InterruptedException {
         lock.lock();
         try {
-            int inicio = tiempo.getCantMinutos();
-            while (pasajeros.size() < CAPACIDAD_MAXIMA
-                    && (tiempo.getCantMinutos() - inicio) < TIEMPO_DE_ESPERA_MINUTOS
-                    && tiempo.estaActivo()) {
-                lleno.await(tiempo.convertirMinutos(1), TimeUnit.MILLISECONDS);
+            while (cantPasajeros == 0 && Tiempo.parqueAbierto()) {
+                puedeViajar.await();
             }
+            if (!Tiempo.parqueAbierto()) {
+                return false;
+            }
+            int inicio = Tiempo.getCantMinutos();
+            while (cantPasajeros < CAPACIDAD_MAXIMA
+                    && (Tiempo.getCantMinutos() - inicio) < TIEMPO_DE_ESPERA_MINUTOS
+                    && Tiempo.parqueAbierto()) {
+                puedeViajar.await(Tiempo.convertirMinutos(1), TimeUnit.MILLISECONDS);
+            }
+            if (!Tiempo.parqueAbierto()) {
+                return false;
+            }
+            sePuedeSubir = false;
+            Tiempo.informar("Colectivo de tour parte con " + cantPasajeros + " pasajeros.");
+            return true;
         } finally {
             lock.unlock();
         }
     }
 
-    private boolean hayPasajeros() {
+    private boolean llegar() throws InterruptedException {
+
+        Tiempo.informar("Colectivo tour llegó al parque.");
         lock.lock();
         try {
-            return !pasajeros.isEmpty();
+            sePuedeBajar = true;
+
+            llego.signalAll();
+
+            while (cantPasajeros > 0 && Tiempo.parqueAbierto()) {
+                puedeViajar.await();
+            }
+
+            if (!Tiempo.parqueAbierto())
+                return false;
+
+            sePuedeBajar = false;
+            return true;
         } finally {
             lock.unlock();
         }
+
     }
 
-    private void partir() {
+    public void notificarCierre() {
         lock.lock();
         try {
-            viajando = true;
-        } finally {
-            lock.unlock();
-        }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                + getName() + ": parte con " + cantidadPasajeros() + " pasajeros.");
-    }
-
-    private void llegar() {
-        lock.lock();
-        try {
-            viajando = false;
-            enParque = true;
+            hayLugar.signalAll();
+            puedeViajar.signalAll();
             llego.signalAll();
         } finally {
             lock.unlock();
         }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                + getName() + ": llegó al parque.");
-    }
-
-    private void esperarQueSeVacie() throws InterruptedException {
-        lock.lock();
-        try {
-            while (!pasajeros.isEmpty() && tiempo.estaActivo()) {
-                hayLugar.await();
-            }
-            enParque = false;
-            hayLugar.signalAll();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private int cantidadPasajeros() {
-        lock.lock();
-        try {
-            return pasajeros.size();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public String toString() {
-        return getName();
     }
 
     @Override
     public void run() {
         try {
-            while (tiempo.estaActivo()) {
+            while (Tiempo.parqueAbierto()) {
+                if (!esperarPasajeros())
+                    return;
 
-                esperar();
+                Tiempo.esperarMinutos(10 + random.nextInt(3));
+                if (!llegar()) {
+                    return;
+                }
 
-                if (!hayPasajeros())
-                    continue;
+                Tiempo.esperarMinutos(10 + random.nextInt(3));
 
-                partir();
-
-                tiempo.esperarMinutos(10 + random.nextInt(3));
-
-                llegar();
-
-                esperarQueSeVacie();
-
-                tiempo.esperarMinutos(10 + random.nextInt(3));
-                System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                        + getName() + ": vuelve a la ciudad.");
+                Tiempo.informar("Colectivo de tour volvio a buscar mas visitantes.");
+                lock.lock();
+                sePuedeSubir = true;
+                hayLugar.signalAll();
+                lock.unlock();
             }
+            System.out.println("Colectivo de tour termina");
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -1,57 +1,46 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class Carrera_De_Gomones implements Actividad {
 
     private static final int CANT_BICICLETAS = 10;
     private static final int CAPACIDAD_TREN = 15;
     private static final int CANT_GOMONES_INDIVIDUALES = 8;
-    private static final int CANT_GOMONES_DOBLES = 5;
+    private static final int CANT_GOMONES_DOBLES = 3;
     private static final int GOMONES_PARA_LARGADA = 6;
 
-    private final Tiempo tiempo;
     private final Random random = new Random();
-    private final Lock lockCarrera = new ReentrantLock(true);
-    private final Lock lockBolsos = new ReentrantLock(true);
-    private final Condition hayVisitantes = lockCarrera.newCondition();
-    private final Condition largadaLista = lockCarrera.newCondition();
-    private final Condition hayBolsosPendientes = lockBolsos.newCondition();
-    private final Condition hayBolsosParaRetrirar = lockBolsos.newCondition();
+
+    private final Camioneta camioneta;
+
+    private final CyclicBarrier esperarParaLargar = new CyclicBarrier(GOMONES_PARA_LARGADA);
     private final Semaphore bicicletas;
     private final Semaphore tren;
     private final Semaphore gomonesIndividuales;
-    private final Semaphore gomonesDobles;
+    private final Queue<GomonDoble> gomonesDoblesDisponibles = new LinkedList<>();
+    private GomonDoble gomonDobleParaEmparejar;
 
-    private final List<Integer> bolsosPendientes = new ArrayList<>();
-
-    private final Map<Integer, Boolean> bolsosParaRetirar = new HashMap<>();
-    private int gomonesListos;
-    private int cantVisitantesEnGomonesDobles = 0;
-    private boolean largadaHabilitada = false;
-
-    public Carrera_De_Gomones(Tiempo tiempo) {
-        this.tiempo = tiempo;
+    public Carrera_De_Gomones() {
+        this.camioneta = new Camioneta();
+        camioneta.start();
+        this.gomonDobleParaEmparejar = null;
         this.bicicletas = new Semaphore(CANT_BICICLETAS, true);
         this.tren = new Semaphore(CAPACIDAD_TREN, true);
         this.gomonesIndividuales = new Semaphore(CANT_GOMONES_INDIVIDUALES, true);
-        this.gomonesDobles = new Semaphore(CANT_GOMONES_DOBLES * 2, true);
+        for (int i = 1; i <= CANT_GOMONES_DOBLES; i++) {
+            gomonesDoblesDisponibles.add(new GomonDoble(i));
+        }
     }
 
     private void viajarEnBicicleta(Visitante v) throws InterruptedException {
         bicicletas.acquire();
         try {
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + v + " toma una bicicleta.");
-            tiempo.esperarMinutos(5 + random.nextInt(5));
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + v + " llega al inicio en bicicleta.");
+            Tiempo.informar(v + " toma una bicicleta.");
+            Tiempo.esperarMinutos(5 + random.nextInt(5));
+            Tiempo.informar(v + " llega al inicio en bicicleta.");
         } finally {
             bicicletas.release();
         }
@@ -60,185 +49,144 @@ public class Carrera_De_Gomones implements Actividad {
     private void viajarEnTren(Visitante v) throws InterruptedException {
         tren.acquire();
         try {
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + v + " sube al tren.");
-            tiempo.esperarMinutos(5 + random.nextInt(5));
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + v + " llega al inicio en tren.");
+            Tiempo.informar(v + " sube al tren.");
+            Tiempo.esperarMinutos(5 + random.nextInt(5));
+            Tiempo.informar(v + " llega al inicio en tren.");
         } finally {
             tren.release();
         }
     }
 
-    private int guardarBolso(Visitante v) {
-        int nroBolso = v.getId();
+    public void notificarCierre() {
 
-        System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                + v + " guarda su bolso N°" + nroBolso + ".");
-
-        lockBolsos.lock();
-        bolsosPendientes.add(nroBolso);
-        hayBolsosPendientes.signalAll();
-        lockBolsos.unlock();
-        return nroBolso;
-    }
-
-    public List<Integer> retirarBolsosPendientes() throws InterruptedException { // La camioneta busca los bolsos para
-                                                                                 // llevar
-        lockBolsos.lock();
-        while (bolsosPendientes.isEmpty()) {
-            if (!tiempo.estaActivo())
-                return null;
-            hayBolsosPendientes.await();
-        }
-        List<Integer> copia = new ArrayList<>(bolsosPendientes);
-        bolsosPendientes.clear();
-        lockBolsos.unlock();
-        return copia;
-
-    }
-
-    public void depositarBolso(int nroBolso) {
-        lockBolsos.lock();
-        bolsosParaRetirar.put(nroBolso, true);
-        hayBolsosParaRetrirar.signalAll(); // avisa a los visitantes que esperan
-        lockBolsos.unlock();
-    }
-
-    private void retirarBolso(Visitante v, int nroBolso) throws InterruptedException { // Los visitantes retiran los
-                                                                                       // bolsos
-        lockBolsos.lock();
-        while (!bolsosParaRetirar.containsKey(nroBolso)) {
-            if (!tiempo.estaActivo()) {
-                System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                        + v + " El parque cerro. Le devolvieron su bolso.");
-                return;
+        esperarParaLargar.reset();
+        synchronized (this) {
+            if (gomonDobleParaEmparejar != null) {
+                GomonDoble gomon = gomonDobleParaEmparejar;
+                gomonDobleParaEmparejar = null;
+                gomon.avisarCierre();
             }
-            hayBolsosParaRetrirar.await();
         }
-        bolsosParaRetirar.remove(nroBolso);
-        System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                + v + " retira su bolso N°" + nroBolso + ".");
-        lockBolsos.unlock();
+
+        camioneta.notificarCierre();
     }
 
-    public int cantidadBolsosPendientes() {
-
-        lockBolsos.lock();
-        int size = bolsosPendientes.size();
-        lockBolsos.unlock();
-        return size;
-    }
-
-    private void incrementarGomonesListos(boolean esDoble) {
-        lockCarrera.lock();
-        if (esDoble) {
-            if (cantVisitantesEnGomonesDobles % 2 == 0) {
-                gomonesListos++;
-            }
-        } else {
-            gomonesListos++;
-        }
-        lockCarrera.unlock();
-    }
-
-    private void decrementarGomonesListos(boolean esDoble) {
-        lockCarrera.lock();
-        if (esDoble) {
-            if (cantVisitantesEnGomonesDobles % 2 == 0) {
-                gomonesListos--;
-            }
-        } else {
-            gomonesListos--;
-        }
-        lockCarrera.unlock();
-    }
-
-    private boolean esperarLargada() throws InterruptedException {
-        lockCarrera.lock();
+    public boolean esperarLargada(Visitante v) {
         try {
-            while (!largadaHabilitada && tiempo.actividadesAbiertas()) {
-                largadaLista.await();
-            }
-            gomonesListos--;
-            if (gomonesListos == 1) {
-                largadaHabilitada = false;
-                gomonesListos = 0;
-            }
-            if (!tiempo.actividadesAbiertas()) {
+            if (Tiempo.actividadesAbiertas()) {
+                esperarParaLargar.await();
+            } else {
                 return false;
             }
             return true;
-        } finally {
-            lockCarrera.unlock();
+        } catch (Exception e) {
+            Tiempo.informar("Las actividades cerraron mientras " + v + " esperaba largada");
+            return false;
         }
-    }
-
-    public void habilitarCarrera() {
-        lockCarrera.lock();
-        if (gomonesListos >= GOMONES_PARA_LARGADA) {
-            largadaHabilitada = true;
-            largadaLista.signalAll();
-        }
-        lockCarrera.unlock();
-    }
-
-    public void notificarCierre() {
-        lockCarrera.lock();
-        largadaLista.signalAll();
-        hayVisitantes.signalAll();
-        lockCarrera.unlock();
-        lockBolsos.lock();
-        hayBolsosParaRetrirar.signalAll();
-        hayBolsosPendientes.signalAll();
-        lockBolsos.unlock();
     }
 
     @Override
     public void realizarActividad(Visitante v) throws InterruptedException {
-        if (!tiempo.actividadesAbiertas()) {
+        if (!Tiempo.actividadesAbiertas()) {
             return;
         }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                + v + " Va a hacer Carrera de gomones");
+        Tiempo.informar(v + " Va a hacer Carrera de gomones");
         if (random.nextBoolean()) {
             viajarEnBicicleta(v);
         } else {
             viajarEnTren(v);
         }
 
-        int nroBolso = guardarBolso(v);
-        Semaphore gomon;
+        int nroBolso = camioneta.guardarBolso(v);
+        if (nroBolso == -1) {
+            Tiempo.informar(v + "No pudo guardar su bolso. Las actividades ya cerraron");
+            return;
+        }
+
         boolean esDoble = random.nextBoolean();
-        String tipo;
+
         if (esDoble) {
-            gomon = gomonesDobles;
-            tipo = "doble";
-        } else {
-            gomon = gomonesIndividuales;
-            tipo = "individual";
-        }
-        gomon.acquire();
-        if (esDoble)
-            cantVisitantesEnGomonesDobles++;
-        try {
-            System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                    + v + " toma un gomón " + tipo + ".");
-            incrementarGomonesListos(esDoble);
-            boolean seLargo = esperarLargada();
-            decrementarGomonesListos(esDoble);
-            if (seLargo) {
-                System.out.println("Inicio la carrera de gomones");
-                System.out.println("[" + tiempo.imprimirTiempo() + "] " + v + " baja el río.");
-                tiempo.esperarMinutos(15 + random.nextInt(10));
-            } else {
-                System.out.println("No se realizo la carrera. El horario de actividades termino.");
+            GomonDoble gomon;
+            boolean emparejado;
+
+            synchronized (this) {
+                if (gomonDobleParaEmparejar != null) {
+                    // Hay un gomón esperando al segundo visitante.
+                    gomon = gomonDobleParaEmparejar;
+                    gomonDobleParaEmparejar = null;
+                    emparejado = true;
+                } else {
+                    // Buscar un gomón disponible para ser el primer visitante.
+                    while (gomonesDoblesDisponibles.isEmpty()
+                            && Tiempo.actividadesAbiertas()) {
+                        this.wait();
+                    }
+
+                    if (!Tiempo.actividadesAbiertas()) {
+                        gomon = null;
+                        emparejado = false;
+                    } else {
+                        gomon = gomonesDoblesDisponibles.poll();
+                        gomonDobleParaEmparejar = gomon;
+                        emparejado = false;
+                    }
+                }
             }
-        } finally {
-            cantVisitantesEnGomonesDobles--;
-            gomon.release();
+
+            if (gomon == null) {
+                camioneta.retirarBolso(v, nroBolso);
+                return;
+            }
+            if (!emparejado) {
+                // caso de visitante que toma gomon doble vacio
+                gomon.usarGomon(v, 0);
+
+                try {
+                    gomon.esperarFin();
+                } catch (Exception e) {
+                    Tiempo.informar(
+                            "Las actividades cerraron mientras " + v
+                                    + " esperaba en gomon doble");
+                    camioneta.retirarBolso(v, nroBolso);
+                    return;
+                }
+
+            } else {
+                // caso de visitante que se empareja en gomon doble
+                gomon.usarGomon(v, 1);
+
+                if (!esperarLargada(v)) {
+                    gomon.avisarCierre();
+                    camioneta.retirarBolso(v, nroBolso);
+                    return;
+                }
+                gomon.viajarEnGomon();
+                try {
+                    gomon.dejarGomon();
+                } catch (Exception e) {
+                    System.out.println("Error en dejar gomon");
+                }
+                synchronized (this) {
+                    gomonesDoblesDisponibles.add(gomon);
+                    this.notifyAll();
+                }
+            }
+
+        } else {
+            gomonesIndividuales.acquire();
+            if (!esperarLargada(v)) {
+                camioneta.retirarBolso(v, nroBolso);
+                gomonesIndividuales.release();
+                return;
+            }
+            Tiempo.informar(v + " baja el rio en gomon individual");
+            Tiempo.esperarMinutos(10 + random.nextInt(5));
+            Tiempo.informar(v + " llega al final de la carrera y deja el gomon individual");
+            gomonesIndividuales.release();
+
         }
-        retirarBolso(v, nroBolso);
+        camioneta.retirarBolso(v, nroBolso);
+
     }
 
 }

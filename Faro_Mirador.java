@@ -10,7 +10,6 @@ public class Faro_Mirador implements Actividad {
 
     private static final int CAPACIDAD_ESCALERA = 20;
 
-    private final Tiempo tiempo;
     private final Random random = new Random();
 
     private final Lock lock = new ReentrantLock(true);
@@ -26,8 +25,7 @@ public class Faro_Mirador implements Actividad {
     private boolean asignado = false;
     private Visitante visitanteAsignado = null;
 
-    public Faro_Mirador(Tiempo tiempo) {
-        this.tiempo = tiempo;
+    public Faro_Mirador() {
         this.tobogan1 = new Semaphore(1, true);
         this.tobogan2 = new Semaphore(1, true);
     }
@@ -44,10 +42,10 @@ public class Faro_Mirador implements Actividad {
     public void asignarTobogan() throws InterruptedException {
         lock.lock();
         try {
-            while (colaCima.isEmpty() && tiempo.estaActivo()) {
+            while (colaCima.isEmpty() && Tiempo.actividadesAbiertas()) {
                 hayVisitantes.await();
             }
-            if (!tiempo.estaActivo()) {
+            if (!Tiempo.actividadesAbiertas()) {
                 hayAsignacion.signalAll();
                 asignacionLeida.signalAll();
                 return;
@@ -56,15 +54,15 @@ public class Faro_Mirador implements Actividad {
             visitanteAsignado = v;
             asignado = true;
             toboganAsignado = (toboganAsignado == 1) ? 2 : 1;
-            System.out.println("El admin le asigno el tobogan " + toboganAsignado + " a " + v);
+            Tiempo.informar("El admin le asigno el tobogan " + toboganAsignado + " a " + v);
             // Despertar a los visitantes que esperan su asignación.
             hayAsignacion.signal();
             // Esperar hasta que el visitante seleccionado lea el valor.
-            while (asignado && tiempo.estaActivo()) {
+            while (asignado && Tiempo.actividadesAbiertas()) {
                 asignacionLeida.await();
             }
 
-            if (!tiempo.estaActivo()) {
+            if (!Tiempo.actividadesAbiertas()) {
                 hayAsignacion.signalAll();
                 return;
             }
@@ -75,23 +73,26 @@ public class Faro_Mirador implements Actividad {
 
     @Override
     public void realizarActividad(Visitante v) throws InterruptedException {
-        if (tiempo.getCantMinutos() >= ParqueECO_PCS.CIERRE_ACTIVIDADES) {
+        if (!Tiempo.actividadesAbiertas()) {
             return;
         }
         lock.lock();
         try {
-            while (personasEnEscalera >= CAPACIDAD_ESCALERA && tiempo.estaActivo()) {
+            while (personasEnEscalera >= CAPACIDAD_ESCALERA && Tiempo.actividadesAbiertas()) {
                 hayLugarEscalera.await();
             }
-            if (!tiempo.estaActivo())
+            if (!Tiempo.actividadesAbiertas()) {
+                System.out.println("El horario de actividades termino mientras " + v
+                        + " esperaba para subir las escaleras caracol");
                 return;
+            }
             personasEnEscalera++;
-            System.out.println("[" + tiempo.imprimirTiempo() + "] " + v + " Sube las escaleras de caracol.");
+            Tiempo.informar( v + " Sube las escaleras de caracol.");
         } finally {
             lock.unlock();
         }
 
-        tiempo.esperarMinutos(3);
+        Tiempo.esperarMinutos(3);
 
         lock.lock();
         try {
@@ -106,11 +107,12 @@ public class Faro_Mirador implements Actividad {
         lock.lock();
         try {
             while ((visitanteAsignado != v || !asignado)
-                    && tiempo.estaActivo()) {
+                    && Tiempo.actividadesAbiertas()) {
                 hayAsignacion.await();
             }
 
-            if (!tiempo.estaActivo()) {
+            if (!Tiempo.actividadesAbiertas()) {
+                System.out.println("Las actividades cerrraron mientras " + v + " esperaba la asignacion de un tobogan");
                 return;
             }
             tobogan = toboganAsignado;
@@ -126,17 +128,16 @@ public class Faro_Mirador implements Actividad {
 
         if (tobogan == 1) {
             tobogan1.acquire();
-            System.out.println("[" + tiempo.imprimirTiempo() + "] " + v + " se tira por el tobogan 1.");
-            tiempo.esperarMinutos(2 + random.nextInt(2));
+            Tiempo.informar(v + " se tira por el tobogan 1.");
+            Tiempo.esperarMinutos(2 + random.nextInt(2));
             tobogan1.release();
         } else {
             tobogan2.acquire();
-            System.out.println("[" + tiempo.imprimirTiempo() + "] " + v + " se tira por el tobogan 2.");
-            tiempo.esperarMinutos(2 + random.nextInt(2));
+            Tiempo.informar( v + " se tira por el tobogan 2.");
+            Tiempo.esperarMinutos(2 + random.nextInt(2));
             tobogan2.release();
         }
-        System.out.println("[" + tiempo.imprimirTiempo() + "] " + v + " llega a la pileta.");
-
+        Tiempo.informar(v + " llega a la pileta.");
     }
 
     public void notificarCierre() {

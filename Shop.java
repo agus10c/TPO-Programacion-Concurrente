@@ -5,34 +5,30 @@ import java.util.concurrent.Semaphore;
 
 public class Shop implements Actividad {
 
-    private final Tiempo tiempo;
     private final Random random = new Random();
-    private final Semaphore cajas = new Semaphore(2, true);
+    private final Semaphore cajas;
     private final Suvenir[] suvenires = {
             new Suvenir("Remera ECO", 10),
             new Suvenir("Llavero ECO", 10),
             new Suvenir("Gorra ECO", 10)
     };
 
-    public Shop(Tiempo tiempo) {
-        this.tiempo = tiempo;
+    public Shop() {
+        cajas = new Semaphore(2, true);
     }
 
     public void comprar(Visitante visitante) throws InterruptedException {
         int suvenirElegido = elegirConStock();
         if (suvenirElegido < 0) {
-            System.out.println(
-                    "[" + tiempo.imprimirTiempo() + "] " + visitante + " encuentra el shop agotado y se retira.");
+            Tiempo.informar(visitante + " encuentra el shop agotado y se retira.");
             return;
         }
         cajas.acquire();
-        System.out.println("[" + tiempo.imprimirTiempo() + "] " + visitante + " paga en una de las cajas del shop ("
-                + suvenires[suvenirElegido].nombre + ").");
-        tiempo.esperarMinutos(1 + random.nextInt(3));
+        Tiempo.informar(visitante + " paga en una de las cajas del shop (" + suvenires[suvenirElegido].nombre + ").");
+        Tiempo.esperarMinutos(1 + random.nextInt(3));
         cajas.release();
-        System.out.println(
-                "[" + tiempo.imprimirTiempo() + "] " + visitante + " compro " + suvenires[suvenirElegido].nombre
-                        + " (quedan " + suvenires[suvenirElegido].stock + ").");
+        Tiempo.informar(visitante + " compro " + suvenires[suvenirElegido].nombre + " (quedan "
+                + suvenires[suvenirElegido].stock + ").");
     }
 
     private synchronized int elegirConStock() {
@@ -50,8 +46,7 @@ public class Shop implements Actividad {
 
     @Override
     public void realizarActividad(Visitante visitante) throws InterruptedException {
-        System.out.println("[" + tiempo.imprimirTiempo() + "] "
-                + visitante + " va a comprar al shop");
+        Tiempo.informar(visitante + " va a comprar al shop");
         comprar(visitante);
     }
 
