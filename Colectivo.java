@@ -46,7 +46,7 @@ public class Colectivo extends Thread {
             while (!sePuedeBajar && Tiempo.parqueAbierto()) {
                 llego.await();
             }
-            if(!Tiempo.parqueAbierto())
+            if (!Tiempo.parqueAbierto())
                 return false;
             cantPasajeros--;
             Tiempo.informar(v + " baja del colectivo de tour (" + cantPasajeros + "/" + CAPACIDAD_MAXIMA + ").");

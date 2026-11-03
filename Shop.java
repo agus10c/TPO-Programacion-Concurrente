@@ -18,29 +18,31 @@ public class Shop implements Actividad {
     }
 
     public void comprar(Visitante visitante) throws InterruptedException {
-        int suvenirElegido = elegirConStock();
+        int suvenirElegido = elegirConStock(visitante);
         if (suvenirElegido < 0) {
             Tiempo.informar(visitante + " encuentra el shop agotado y se retira.");
             return;
         }
         cajas.acquire();
-        Tiempo.informar(visitante + " paga en una de las cajas del shop (" + suvenires[suvenirElegido].nombre + ").");
+        Tiempo.informar(
+                visitante + " paga en una de las cajas del shop (" + suvenires[suvenirElegido].getNombre() + ").");
         Tiempo.esperarMinutos(1 + random.nextInt(3));
         cajas.release();
-        Tiempo.informar(visitante + " compro " + suvenires[suvenirElegido].nombre + " (quedan "
-                + suvenires[suvenirElegido].stock + ").");
+        Tiempo.informar(visitante + " compro " + suvenires[suvenirElegido].getNombre());
     }
 
-    private synchronized int elegirConStock() {
+    private synchronized int elegirConStock(Visitante v) {
         List<Integer> disponibles = new ArrayList<>();
         for (int i = 0; i < suvenires.length; i++) {
-            if (suvenires[i].stock > 0)
+            if (suvenires[i].getStock() > 0)
                 disponibles.add(i);
         }
         if (disponibles.isEmpty())
             return -1;
         int suvenirElegido = disponibles.get(random.nextInt(disponibles.size()));
-        suvenires[suvenirElegido].stock--;
+        suvenires[suvenirElegido].decrementarStock();
+        Tiempo.informar(v + " toma un " + suvenires[suvenirElegido].getNombre() + " (quedan "
+                + suvenires[suvenirElegido].getStock() + ").");
         return suvenirElegido;
     }
 

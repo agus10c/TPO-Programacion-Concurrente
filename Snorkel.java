@@ -16,9 +16,12 @@ public class Snorkel implements Actividad {
         this.asistentes = new Semaphore(CANTIDAD_ASISTENTES, true);
     }
 
-    private void solicitarEquipo(Visitante visitante) throws InterruptedException {
+    private boolean solicitarEquipo(Visitante visitante) throws InterruptedException {
         Tiempo.informar(visitante + " espera a que un asistente lo atienda.");
         asistentes.acquire();
+        if (!Tiempo.actividadesAbiertas()) {
+            return false;
+        }
         try {
             Tiempo.informar(visitante + " esta siendo atendido por un asistente de snorkel.");
             Tiempo.esperarMinutos(1 + random.nextInt(3));
@@ -27,7 +30,12 @@ public class Snorkel implements Actividad {
                 Tiempo.informar(visitante + " espera a que haya equipo disponible.");
             }
             equiposCompletos.acquire();
+            if (!Tiempo.actividadesAbiertas()) {
+                equiposCompletos.release();
+                return false;
+            }
             Tiempo.informar(visitante + " recibió snorkel, salvavidas y patas de rana.");
+            return true;
         } finally {
             asistentes.release();
         }
@@ -44,11 +52,9 @@ public class Snorkel implements Actividad {
             return;
         }
         Tiempo.informar(visitante + " Va a hacer Snorkel");
-        solicitarEquipo(visitante);
-        try {
+        if (solicitarEquipo(visitante)) {
             Tiempo.informar(visitante + " realiza snorkel.");
             Tiempo.esperarMinutos(10 + (random.nextInt(11)));
-        } finally {
             devolverEquipo(visitante);
         }
     }

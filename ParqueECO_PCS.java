@@ -47,13 +47,13 @@ public class ParqueECO_PCS {
     }
 
     public synchronized void avisarApertura() {
-            this.notifyAll();
+        this.notifyAll();
     }
 
     public boolean ingresar(Visitante visitante) throws InterruptedException {
-        while (!Tiempo.aperturaRealizada()) {
-            Tiempo.informar(visitante + " espera que el parque abra para ingresar.");
-            synchronized (this) {
+        synchronized (this) {
+            while (!Tiempo.aperturaRealizada()) {
+                Tiempo.informar(visitante + " espera que el parque abra para ingresar.");
                 this.wait();
             }
         }
@@ -69,21 +69,25 @@ public class ParqueECO_PCS {
                 + enUso + "/" + MOLINETES + ").");
         Tiempo.esperarMinutos(1 + random.nextInt(4));
         molinetes.release();
+        int cantVisitantesDentro;
         synchronized (this) {
-            visitantesDentro++;
+            cantVisitantesDentro = ++visitantesDentro;
+            Tiempo.informar(
+                    visitante + " ingreso al parque. Cantidad de visitantes en el parque: " + cantVisitantesDentro);
         }
-        Tiempo.informar(visitante + " ingreso al parque. Cantidad de visitantes en el parque: " + visitantesDentro);
         return true;
     }
 
     public void salir(Visitante visitante) throws InterruptedException {
+        int restantes;
         synchronized (this) {
-            visitantesDentro--;
+            restantes = --visitantesDentro;
             if (visitantesDentro <= 0) {
                 this.notifyAll();
             }
+            Tiempo.informar(visitante + " se retira del parque. Visitantes dentro del parque: " + restantes);
         }
-        Tiempo.informar(visitante + " se retira del parque. Visitantes dentro del parque: " + visitantesDentro);
+
     }
 
     public void cerrarActividades() throws InterruptedException {

@@ -10,9 +10,9 @@ public class AdminFaroMirador extends Thread {
     @Override
     public void run() {
         try {
-            while (Tiempo.parqueAbierto()) {
+            while (Tiempo.actividadesAbiertas()) {
                 faro.asignarTobogan();
-            }  
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

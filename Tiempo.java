@@ -2,7 +2,7 @@ public class Tiempo extends Thread {
 
     private static final int HORA_INICIAL = 8;
     private static final int MINUTO_INICIAL = 0;
-    private static final long MS_POR_MINUTO = 80;
+    private static final long MS_POR_MINUTO = 30;
     private static int cantMinutos = HORA_INICIAL * 60 + MINUTO_INICIAL; // total acumulado desde el arranque de la
                                                                          // simulación
 

@@ -46,8 +46,6 @@ public class Faro_Mirador implements Actividad {
                 hayVisitantes.await();
             }
             if (!Tiempo.actividadesAbiertas()) {
-                hayAsignacion.signalAll();
-                asignacionLeida.signalAll();
                 return;
             }
             Visitante v = colaCima.poll();
@@ -63,7 +61,6 @@ public class Faro_Mirador implements Actividad {
             }
 
             if (!Tiempo.actividadesAbiertas()) {
-                hayAsignacion.signalAll();
                 return;
             }
         } finally {
@@ -87,7 +84,7 @@ public class Faro_Mirador implements Actividad {
                 return;
             }
             personasEnEscalera++;
-            Tiempo.informar( v + " Sube las escaleras de caracol.");
+            Tiempo.informar(v + " Sube las escaleras de caracol.");
         } finally {
             lock.unlock();
         }
@@ -133,7 +130,7 @@ public class Faro_Mirador implements Actividad {
             tobogan1.release();
         } else {
             tobogan2.acquire();
-            Tiempo.informar( v + " se tira por el tobogan 2.");
+            Tiempo.informar(v + " se tira por el tobogan 2.");
             Tiempo.esperarMinutos(2 + random.nextInt(2));
             tobogan2.release();
         }
