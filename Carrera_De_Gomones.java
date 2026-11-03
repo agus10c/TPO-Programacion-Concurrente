@@ -155,6 +155,10 @@ public class Carrera_De_Gomones implements Actividad {
                 if (!gomon.esperarFin()) {
                     Tiempo.informar("Las actividades cerraron mientras " + v + " esperaba en gomon doble");
                 }
+                synchronized (this) {
+                    gomonesDoblesDisponibles.add(gomon);
+                    this.notifyAll();
+                }
             } else {
                 // caso de visitante que se empareja en gomon doble
 
@@ -165,11 +169,6 @@ public class Carrera_De_Gomones implements Actividad {
                 }
                 gomon.viajarEnGomon();
                 gomon.dejarGomon();
-
-                synchronized (this) {
-                    gomonesDoblesDisponibles.add(gomon);
-                    this.notifyAll();
-                }
             }
 
         } else {

@@ -54,7 +54,7 @@ public class Faro_Mirador implements Actividad {
             toboganAsignado = (toboganAsignado == 1) ? 2 : 1;
             Tiempo.informar("El admin le asigno el tobogan " + toboganAsignado + " a " + v);
             // Despertar a los visitantes que esperan su asignación.
-            hayAsignacion.signal();
+            hayAsignacion.signalAll();
             // Esperar hasta que el visitante seleccionado lea el valor.
             while (asignado && Tiempo.actividadesAbiertas()) {
                 asignacionLeida.await();
